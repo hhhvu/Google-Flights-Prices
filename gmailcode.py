@@ -1,8 +1,3 @@
-'''
-Gmail API documentation: https://developers.google.com/gmail/api/v1/reference/users/messages/list
-'''
-
-
 from apiclient.discovery import build
 from httplib2 import Http 
 from oauth2client import file, client, tools
@@ -31,7 +26,7 @@ service = build('gmail','v1', http=creds.authorize(Http()))
 
 #calll the Gmail API, only get 1 of the recent message ids
 # First get the message if for the message
-results = service.users().messages().list(userId='me', 
+results = service.users().messages().list(userId='me',
 											maxResults = 10,  # max record to  obtain
 											q='from: noreply-travel@google.com label:inbox ').execute() #include filter for message
 
