@@ -28,7 +28,7 @@ store = file.Storage('credentials.json')
 creds = store.get()
 
 if not creds or creds.invalid:
-    flow = client.flow_from_clientsecrets('C:\\Users\\huong.vu\\Desktop\\Google-Flights-Prices\\client_secret.json',
+    flow = client.flow_from_clientsecrets('C:\\Users\\huong.vu\\Desktop\\Git\\Google-Flights-Prices\\client_secret.json',
                                           SCOPES)
     creds = tools.run_flow(flow, store, args)
 
@@ -37,14 +37,13 @@ service = build('gmail', 'v1', http=creds.authorize(Http()))
 # calll the Gmail API, only get 1 of the recent message ids
 # First get the message if for the message
 results = service.users().messages().list(userId='me',
-                                          maxResults=20,  # max record to  obtain
+                                          maxResults=100,  # max record to  obtain
                                           q='from: noreply-travel@google.com label:inbox ').execute()  # include filter for message
 
 time = []
 price_now = []
 price_before = []
 airlines = []
-
 
 dollar = re.compile(r'\$\d+\,*\d+')
 eva = re.compile(r'EVA')
@@ -55,7 +54,10 @@ for i in range(results['resultSizeEstimate']):
 
     # use the message id to get the actual message, including any attachments
     message = service.users().messages().get(userId='me', id=message_id).execute()
-    
+    # print(message['snippet'])
+    # for dic in message['payload']['headers']:
+    #     if dic['name'] == 'Subject':
+    #         print(dic['value'])
     ''' 
     we know the structure of a message variable and the information we need is from ['snippet']
     and ['payload']['headers'], so we can directly go there without a loop.
@@ -64,36 +66,41 @@ for i in range(results['resultSizeEstimate']):
     '''
 
     '''
-    There are two types of message. One gives prices of multiple airlines and one gives prices of EVA Airlines.
-    This is because the option I chose when I started tracking prices.
-    Eva airlines will have prices in the subject while other emails will have prices in the snippet.
+    If the snippet contains:
+        1. 'your tracked flight' with 'EVA Air' => airline = EVA Air
+        2. 'your tracked flight' without 'EVA Air' => airline = EVA Air cooperated
+        3. 'your tracked flights' => EVA Air and EVA Air cooperated
+        4. no 'your track flight(s)' => specify in snippet
     '''
-    prices = [p for p in dollar.finditer(message['snippet'])]
-    if prices: 
-        '''
-        if prices are in the snippet, then we will look for airlines as well.
-        There are some exceptions where snippet is cut off without airlines.
-        '''
-        price_now.append(prices[0].group())
-        price_before.append(prices[1].group())
-        spaces = [s for s in re.finditer('\s',message['snippet'][(prices[1].end() + 1):])]
-        airlines.append(message['snippet'][(prices[1].end() + 1):][:(spaces[1].end()-1)])
-        for dic in message['payload']['headers']:
-            if dic['name'] == 'Date':
-                date = dt.strptime(dic['value'], '%a, %d %b %Y %H:%M:%S %z').strftime('%m/%d/%y')
-                time.append(date)
-    else: 
-        tracked_flight = re.search('tracked flight', message['snippet'])
-        spaces = [s for s in re.finditer('\s', message['snippet'][(tracked_flight.end() + 1):])]
-        airlines.append(message['snippet'][(tracked_flight.end()+1):][:(spaces[1].end() - 1)])
-        for dic in message['payload']['headers']:
-            if dic['name'] == 'Subject':
-                prices = [p for p in dollar.finditer(dic['value'])]
-                price_now.append(prices[0].group())
-                price_before.append(prices[1].group())
-            if dic['name'] == 'Date':
-                date = dt.strptime(dic['value'], '%a, %d %b %Y %H:%M:%S %z').strftime('%m/%d/%y')
-                time.append(date)
+    # prices = [p for p in dollar.finditer(message['snippet'])]
+    for dic in message['payload']['headers']:
+        if dic['name'] == 'Subject':
+            prices = [p.group() for p in dollar.finditer(dic['value'])]
+            if prices:
+                price_now.append(prices[0])
+                price_before.append(prices[1])
+            else:
+                prices = [p.group() for p in re.finditer(dollar, message['snippet'])]
+                price_now.append(prices[0])
+                price_before.append(prices[1])
+        if dic['name'] == 'Date':
+            date = dt.strptime(dic['value'], '%a, %d %b %Y %H:%M:%S %z').strftime('%m/%d/%y')
+            time.append(date)
+
+    snippet = message['snippet']
+    if re.search('tracked flights', snippet):
+        airlines.append('EVA Air & cooeperated')
+    elif re.search('tracked flight',snippet) and re.search('EVA Air',snippet):
+        airlines.append('EVA Air')
+    elif re.search(r'tracked flight[^s]*', snippet):
+        airlines.append('EVA cooperated')
+    else:
+        prices = [p.end() for p in re.finditer(dollar, snippet)]
+        spaces = [s.end() for s in re.finditer('\s', snippet[prices[1]:])]
+        airlines.append(snippet[prices[1]:(prices[1] + spaces[2])].strip())
+        if snippet[prices[1]:(prices[1] + spaces[2])].strip() == 'your tracked':
+            print(message_id)
+
 
 
 # reorder data
@@ -109,7 +116,7 @@ data = pd.DataFrame(data={'time': time,
                           'airline': airlines})
 
 # open excel
-workbook = openpyxl.load_workbook('C:\\Users\\huong.vu\\Desktop\\Google-Flights-Prices\\gmail_flight.xlsx')
+workbook = openpyxl.load_workbook('C:\\Users\\huong.vu\\Desktop\\Git\\Google-Flights-Prices\\gmail_flight.xlsx')
 # getting sheet in excel
 sheet = workbook['Sheet1']
 # getting last row in excel sheet
@@ -135,5 +142,5 @@ for k in range(last_row + 1, len(insert_data) + last_row + 1):
     except Exception as e:
         print(str(e))
 
-workbook.save('C:\\Users\\huong.vu\\Desktop\\Google-Flights-Prices\\gmail_flight.xlsx')
+workbook.save('C:\\Users\\huong.vu\\Desktop\\Git\\Google-Flights-Prices\\gmail_flight.xlsx')
 workbook.close()
