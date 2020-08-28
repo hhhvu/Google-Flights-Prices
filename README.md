@@ -10,3 +10,4 @@ References:
 * How to write data into excel file: https://www.pythonexcel.com/openpyxl.php
 
 Date: 08/28/2020
+Update 2: 08/28/2020
