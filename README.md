@@ -8,3 +8,5 @@ References:
 * Gmail API documentation: https://developers.google.com/gmail/api/v1/reference/users/messages/list
 * How to access to Gmail using Python: https://www.codediesel.com/api/how-to-access-gmail-using-python/
 * How to write data into excel file: https://www.pythonexcel.com/openpyxl.php
+
+Date: 08/28/2020
